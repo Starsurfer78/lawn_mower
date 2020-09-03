@@ -1,4 +1,3 @@
-
 NewPing sonar[SONAR_NUM] = {
   NewPing(pinleft_Sensor_trigger, pinleft_Sensor_echo, MAX_DISTANCE), // Trigger pin, echo pin, and max distance to ping.
   NewPing(pincenter_Sensor_trigger, pincenter_Sensor_echo, MAX_DISTANCE),

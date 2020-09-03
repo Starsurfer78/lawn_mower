@@ -20,6 +20,7 @@ void Motor_Action_Spin_Blades()  {
   }
 }
 
+
 // Turns the Cutter Motor OFF
 void stopCutter()  {
   digitalWrite(R_EN, LOW);

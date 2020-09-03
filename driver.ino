@@ -39,7 +39,7 @@ void moveBackward(uint8_t pwmValue) {
 }
 
 void moveLeft(uint8_t pwmValue) {
-  analogWrite(pinMotorRight_reverse, LOW);  
+  analogWrite(pinMotorRight_reverse, LOW);
   analogWrite(pinMotorRight_forward, pwmValue);  //Right wheel forward.
   analogWrite(pinMotorLeft_forward, LOW);
   analogWrite(pinMotorLeft_reverse, pwmValue);   //Left wheel backward.
