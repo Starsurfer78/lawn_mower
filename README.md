@@ -1,4 +1,4 @@
-# Arduino Based Lawn Mower Code for Ambrogio/Wipper XP Lawn Mower
+Arduino Based Lawn Mower Code for Ambrogio/Wipper XP Lawn Mower
 
 Components required:
 1x Arduino Mega
@@ -10,7 +10,7 @@ Components required:
 1x LM2596S DC-DC Step down
 1x INA?? for Battery Power 
 
-And a Lawn Mower like Ambrogio L50 or Wipper XP
+And a Lawn Mower like Ambrogio or Wipper XP
 
 This Code is under development and not testet yet! Use it at your own risk.
 
