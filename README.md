@@ -3,7 +3,6 @@
 Components required:
 1x Arduino Mega
 1x Nodemcu
-1x 3.5" TFT
 3X BTS7960 Motordriver
 3x ACS712 30A 
 3x Ultrasonic Modul HC-SR04
