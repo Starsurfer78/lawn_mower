@@ -7,8 +7,11 @@
 
 */
 
-#include <NewPing.h>
-#include <SimpleKalmanFilter.h>
+#include <NewPing.h>              // https://github.com/microflo/NewPing/blob/master/NewPing.h
+#include <SimpleKalmanFilter.h>   // https://github.com/denyssene/SimpleKalmanFilter
+#include <RBD_Timer.h>            // https://github.com/alextaujenis/RBD_Timer
+#include <RBD_Button.h>           // https://github.com/alextaujenis/RBD_Button
+#include <RBD_Light.h>            // https://github.com/alextaujenis/RBD_Light
 
 
 #define DEBUG  // Comment to disable debug serial output.
@@ -89,13 +92,19 @@ uint8_t MAX_RANGE_OBSTACLE = 75;    //The maximum range to check if obstacle exi
 #define pinLED_pause 14                  // LED
 #define pinLED_lowBat 15                  // LED
 #define pinLED_fullBat 16                  // LED
-
+RBD::Light  LED_on(pinLED_on);
+RBD::Light  LED_pause(pinLED_pause);
+RBD::Light  LED_lowBat(pinLED_lowBat);
+RBD::Light  LED_fullBat(pinLED_fullBat);
+  
 // ------ Buzzer -------------------------------------
 #define pinBuzzer 53               // Buzzer
 
 // ------ Buttons -------------------------------------
 #define pinButton_onoff 50               // digital ON/OFF button
 #define pinButton_startstop 51               // digital ON/OFF button
+RBD::Button Button_onoff(pinButton_onoff); // input_pullup on digital pin
+RBD::Button Button_startstop(pinButton_startstop); // input_pullup on digital pin
 
 // ------ battery -------------------------------------
 bool Battery_Monitor                = 0;            // monitor battery and charge voltage?
@@ -124,7 +133,7 @@ int Mower_Turn_Delay_Max  = 2500;   // A random turn time between these numbers 
 int Mower_Reverse_Delay   = 1800;   // Time the mower revreses at the wire
 
 int DriveCurrentcounter = 0;      // Counter that gets added while high load. Used for not giving up directly on high load
-int DriveCurrentcountermax = 10;  //Used for not giving up directly on high load 
+int DriveCurrentcountermax = 10;  //Used for not giving up directly on high load
 
 /* SETTINGS END */
 
@@ -187,21 +196,24 @@ bool isTimerPosition(int _mSec) {
   return (millis() - _timerStartPosition) > _mSec;
 }
 
+int state = 0;
+
 void setup() {
   Serial.begin(115200);
   DPRINTLN("SETUP");
   // LED, buzzer, battery
-  pinMode(pinLED_on, OUTPUT);
-  digitalWrite(pinLED_on, HIGH);
-
-  pinMode(pinLED_pause, OUTPUT);
-  digitalWrite(pinLED_pause, 0);
-
-  pinMode(pinLED_lowBat, OUTPUT);
-  digitalWrite(pinLED_lowBat, 0);
-
-  pinMode(pinLED_fullBat, OUTPUT);
-  digitalWrite(pinLED_fullBat, 0);
+  LED_on.on();
+  //pinMode(pinLED_on, OUTPUT);
+  //digitalWrite(pinLED_on, HIGH);
+  LED_pause.off();
+  //pinMode(pinLED_pause, OUTPUT);
+  //digitalWrite(pinLED_pause, 0);
+  LED_lowBat.off();
+  //pinMode(pinLED_lowBat, OUTPUT);
+  //digitalWrite(pinLED_lowBat, 0);
+  LED_fullBat.off();
+  //pinMode(pinLED_fullBat, OUTPUT);
+  //digitalWrite(pinLED_fullBat, 0);
 
   pinMode(pinBuzzer, OUTPUT);
   digitalWrite(pinBuzzer, 0);
@@ -223,71 +235,82 @@ void setup() {
 } // END SETUP
 
 void loop() {
-  if (isTimeForLoop(LOOPING)) {
 
+  if (Button_startstop.onPressed()) {
+    state++;
+    if (state == 1) {
+      LED_pause.off();
 
-    // Check battery voltage
-    if (_batt_timer == 10) { // Dont check battery every time
-      // Measure Current
-      leftDriveCurrent = measureCurrent(pinleftDriveCurrent);
-      rightDriveCurrent = measureCurrent(pinrightDriveCurrent);
-      bladeCurrent = measureCurrent(pinbladeCurrent);
-      DPRINT("leftDriveCurrent: ");
-      DPRINT(leftDriveCurrent);
-      DPRINTLN(" Amp");
+      if (isTimeForLoop(LOOPING)) {
+        // Check battery voltage
+        if (_batt_timer == 10) { // Dont check battery every time
+          // Measure Current
+          leftDriveCurrent = measureCurrent(pinleftDriveCurrent);
+          rightDriveCurrent = measureCurrent(pinrightDriveCurrent);
+          bladeCurrent = measureCurrent(pinbladeCurrent);
+          /*
+          DPRINT("leftDriveCurrent: ");
+          DPRINT(leftDriveCurrent);
+          DPRINTLN(" Amp");
 
-      DPRINT("rightDriveCurrent: ");
-      DPRINT(rightDriveCurrent);
-      DPRINTLN(" Amp");
+          DPRINT("rightDriveCurrent: ");
+          DPRINT(rightDriveCurrent);
+          DPRINTLN(" Amp");
 
-      DPRINT("bladeCurrent: ");
-      DPRINT(bladeCurrent);
-      DPRINTLN("Amp");
-
-      /*
-            if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright || bladeCurrent > Blademax) {
-              //stopMotors();
-              //bladesOFF();
-              _navState = STOP;
-              DPRINT("ERROR: Overload");
+          DPRINT("bladeCurrent: ");
+          DPRINT(bladeCurrent);
+          DPRINTLN("Amp");
+          */
+          
+          /*
+                if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright || bladeCurrent > Blademax) {
+                  //stopMotors();
+                  //bladesOFF();
+                  _navState = STOP;
+                  DPRINT("ERROR: Overload");
+                }
+          */
+          if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
+            // Add to load counter
+            DriveCurrentcounter++;
+            if (DriveCurrentcounter >= DriveCurrentcountermax) {
+              // Turn around
+              DPRINTLN("High drive wheel load, turn around");
+              _navState = BACK;
+              DriveCurrentcounter = 0;
             }
-      */
-      if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
-        // Add to load counter
-        DriveCurrentcounter++;
-        if (DriveCurrentcounter >= DriveCurrentcountermax) {
-          // Turn around
-          DPRINTLN("High drive wheel load, turn around");
-          _navState = BACK;
-          DriveCurrentcounter = 0;
-        }
+          }
+          /*
+            // Battery low?
+            if (battv <= 215) {
+            // Battery volt is to low!
+            Serial.println("Battery low, stop!");
+            LED_fullBat.off();
+            pinLED_lowBat.on();
+            state = 0;
+            set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
+            sleep_enable();
+            }
+          */
+          _batt_timer = 0; // Reset counter
+        }// Check battery voltage END
+
+        _batt_timer = _batt_timer + 1;
+        // Debug
+        DPRINT("batt_timer: ");
+        DPRINTLN(_batt_timer);
+
+        sensorCycle();
+        applyKF();
+        obstacleAvoidance();
+        startTimer();
       }
-
-
-
-      // Battery low?
-      /*
-        if (battv <= 215) {
-        // Battery volt is to low!
-        Serial.println("Battery low, stop!");
-        digitalWrite(pinLED_fullBat, HIGH);
-        digitalWrite(pinLED_lowBat, HIGH);          // Light up red battery led
-        status = "stop";
-        set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
-        sleep_enable();
-        }
-      */
-      _batt_timer = 0; // Reset counter
-    }// Check battery voltage END
-    
-    _batt_timer = _batt_timer + 1;
-    // Debug
-    DPRINT("batt_timer: ");
-    DPRINTLN(_batt_timer);
-
-    sensorCycle();
-    applyKF();
-    obstacleAvoidance();
-    startTimer();
-  }
+      else {
+        state = 0;
+        stopMotors();
+        bladesOFF();
+        LED_pause.on();
+      }
+    }
+  }//Button Start/Stop
 } // END LOOP
