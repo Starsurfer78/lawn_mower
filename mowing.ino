@@ -48,6 +48,7 @@ void obstacleAvoidance()
 
     case LEFT: { //Move left and check obstacle. If obstacle exists, go again to left, else exit
         moveLeft(minSpeed);
+        MOVE_TO_NEW_POSITION = random(Mower_Turn_Delay_Min, Mower_Turn_Delay_Max);
         if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
           if (isObstacleLeft == 1) _navState = LEFT;
           else _navState = CHECK_ALL;
@@ -60,6 +61,7 @@ void obstacleAvoidance()
 
     case RIGHT: {
         moveRight(minSpeed);
+        MOVE_TO_NEW_POSITION = random(Mower_Turn_Delay_Min, Mower_Turn_Delay_Max);
         if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
           if (isObstacleRight == 1) _navState = RIGHT;
           else _navState = CHECK_ALL;
@@ -68,7 +70,7 @@ void obstacleAvoidance()
 
     case BACK: {
         moveBackward(minSpeed);
-        if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
+        if (isTimerPosition(Mower_Reverse_Delay)) {
           if (randomMove() == 1)  _navState = LEFT; else  _navState = RIGHT;
         }
       } break;

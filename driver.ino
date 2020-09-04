@@ -14,14 +14,6 @@ void stopMotors() {
   DPRINTLN("Stop Motors");
 }
 
-void go_Robot(){
-  analogWrite(pinMotorRight_reverse, LOW);
-  analogWrite(pinMotorRight_forward, pwmRvalue);
-  analogWrite(pinMotorLeft_reverse, LOW);
-  analogWrite(pinMotorLeft_forward, pwmLvalue);
-  DPRINTLN("Start mowing");
-}
-
 void moveForward(uint8_t pwmValue) {
   analogWrite(pinMotorRight_reverse, LOW);
   analogWrite(pinMotorRight_forward, pwmValue);   //Motor 1
@@ -75,6 +67,21 @@ void SetPWM(const long pwm_num, byte pwm_channel){
     analogWrite(pinMotorLeft_forward, pwm_num);
     pwmLvalue = pwm_num;
   }
+}
+
+void go_Robot(){
+  analogWrite(pinMotorRight_reverse, LOW);
+  analogWrite(pinMotorRight_forward, pwmRvalue);
+  analogWrite(pinMotorLeft_reverse, LOW);
+  analogWrite(pinMotorLeft_forward, pwmLvalue);
+  DPRINTLN("Start mowing");
+}
+
+void poweroff(){
+  stopMotors();
+  bladesOFF();
+  digitalWrite(pinLED_pause, HIGH);
+  DPRINTLN("Power off");
 }
 
 //Return 1 or 0 from a random number.
