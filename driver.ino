@@ -54,6 +54,18 @@ void moveRight(uint8_t pwmValue) {
   DPRINTLN("Move RIGHT");
 }
 
+void leftOFF() {
+  // Turns left motor OFF
+  digitalWrite(pinMotorLeft_forward, LOW);
+  digitalWrite(pinMotorLeft_reverse, LOW);
+}
+
+void rightOFF() {
+  // Turns right motor OFF
+  digitalWrite(pinMotorRight_forward, LOW);
+  digitalWrite(pinMotorRight_reverse, LOW);
+}
+
 void SetPWM(const long pwm_num, byte pwm_channel){
   if(pwm_channel==1){ // Right MOTOR
     analogWrite(pinMotorRight_forward, pwm_num);
