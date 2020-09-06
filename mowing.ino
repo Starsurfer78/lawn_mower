@@ -50,6 +50,7 @@ void obstacleAvoidance()
     case LEFT: { //Move left and check obstacle. If obstacle exists, go again to left, else exit
         moveLeft(minSpeed);
         DPRINTLN("Move Left min Speed");
+        //MOVE_TO_NEW_POSITION = random(MOVE_TURN_DELAY_MIN, MOVE_TURN_DELAY_MAX);
         if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
           if (isObstacleLeft == 1) _navState = LEFT;
           else _navState = CHECK_ALL;
@@ -63,6 +64,7 @@ void obstacleAvoidance()
     case RIGHT: {
         moveRight(minSpeed);
         DPRINTLN("Move right min Speed");
+        //MOVE_TO_NEW_POSITION = random(MOVE_TURN_DELAY_MIN, MOVE_TURN_DELAY_MAX);
         if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
           if (isObstacleRight == 1) _navState = RIGHT;
           else _navState = CHECK_ALL;
@@ -72,7 +74,7 @@ void obstacleAvoidance()
     case BACK: {
         moveBackward(minSpeed);
         DPRINTLN("Move backward min Speed");
-        if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
+        if (isTimerPosition(MOVE_REVERSE_DELAY)) {
           if (randomMove() == 1)  _navState = LEFT; else  _navState = RIGHT;
         }
       } break;

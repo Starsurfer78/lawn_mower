@@ -49,11 +49,11 @@ const int pinMotorRight_reverse = 3;   //(LPWM) to Arduino pin 3(PWM)
 const int pinMotorLeft_forward = 6;    //(RPWM) to Arduino pin 6(PWM)
 const int pinMotorLeft_reverse = 7;    //(LPWM) to Arduino pin 7(PWM)
 
-long pwmLvalue = 255;   // Straight line speed Left Wheel (Looking from back of mower)
-long pwmRvalue = 255;   // Straight line speed Right Wheel (Looking from back of mower)
+long pwmLvalue = 245;   // Straight line speed Left Wheel (Looking from back of mower)
+long pwmRvalue = 245;   // Straight line speed Right Wheel (Looking from back of mower)
 byte pwmChannel;
 
-uint8_t maximumSpeed = 255; //PWM value for maximum speed.
+uint8_t maximumSpeed = 245; //PWM value for maximum speed.
 uint8_t minSpeed = 100;     //PWM value for minimum speed.
 
 int Drivemaxleft = 2.9;     // Define variable for max motor current left and set default
@@ -63,7 +63,7 @@ int Drivemaxright = 2.9;    // Define variable for max motor current right and s
 #define RPWM 4
 #define L_EN 9
 #define R_EN 10
-int PWM_Blade_Speed = 255;    // PWM signal for the cutter motor (speed of blade).
+int PWM_Blade_Speed = 250;    // PWM signal for the cutter motor (speed of blade).
 int Blademax = 250;           // Define variable for max Blade current
 
 bool Cutting_Blades_Activate    = 1;      // Activates the cutting blades and disc in the code
@@ -81,21 +81,21 @@ float bladeCurrent = 0.0;
 #define pinright_Sensor_echo     39
 
 #define SONAR_NUM 3          //The number of Sonar sensors.
-#define MAX_DISTANCE 200     //Max distance to detect obstacles.
+#define MAX_DISTANCE 100     //Max distance to detect obstacles.
 #define PING_INTERVAL 33     //Looping the Sonar pings after 33 microseconds.
 
-uint8_t MIN_RANGE_OBSTACLE = 25;     //5 cm is the blind zone of the sensor.
-uint8_t MAX_RANGE_OBSTACLE = 75;    //The maximum range to check if obstacle exists.
+uint8_t MIN_RANGE_OBSTACLE = 5;     //5 cm is the blind zone of the sensor.
+uint8_t MAX_RANGE_OBSTACLE = 25;    //The maximum range to check if obstacle exists.
 
 // ------ Analog In pins -------------------------------------
-#define pinbatteryVoltage A0   // battery voltage sensor
+#define pinbatteryVoltage A4   // battery voltage sensor
 #define pinbladeCurrent A1
 #define pinleftDriveCurrent A2
 #define pinrightDriveCurrent A3
 
 // ------ Perimeter Sensor -------------------------------------
-#define pinPerimeterRight A4    // perimeter NOT USED
-#define pinPerimeterLeft A5     // perimeter NOT USED
+//#define pinPerimeterRight A4    // perimeter NOT USED
+//#define pinPerimeterLeft A5     // perimeter NOT USED
 
 // ------ Tilt Sensors -------------------------------------
 #define pinTilt_Angle A8           // measures the angle of the mower
@@ -131,6 +131,13 @@ float Battery_ChargingFullCurrent   = 0.3;          // current flowing when batt
 float Battery_startChargingIfBelow  = 27.0;         // start charging if battery Voltage is below
 float Battery_chargingTimeout       = 12600000;     // safety timer for charging (ms) 12600000 = 3.5hrs
 
+
+float vout = 0.0;
+float battv = 0.0;
+float R1 = 100000.0; //100k
+float R2 = 20000.0; //20k
+int value_bat = 0;
+
 // ------ ASC712 Current Sensor (30A) -------------------------------------
 int sensitivity = 66;
 int adcValue = 0;
@@ -139,12 +146,12 @@ double adcVoltage = 0;
 double currentValue = 0;
 
 int LOOPING              = 10;    //Loop for every 10 milliseconds.
-int DECREESE_SPEED_LOOP  = 400;   //Give some time to sensors for few more readings.
+int DECREESE_SPEED_LOOP  = 500;   //Give some time to sensors for few more readings.
 int MOVE_TO_NEW_POSITION = 500;   //Wait for the new position.
 
-int Mower_Turn_Delay_Min  = 1000;   // Min Max Turn time of the Mower after it reverses at the wire.
-int Mower_Turn_Delay_Max  = 2500;   // A random turn time between these numbers is selected by the software
-int Mower_Reverse_Delay   = 1800;   // Time the mower revreses at the wire
+int MOVE_TURN_DELAY_MIN  = 1000;   // Min Max Turn time of the Mower after it reverses at the wire.
+int MOVE_TURN_DELAY_MAX  = 2500;   // A random turn time between these numbers is selected by the software
+int MOVE_REVERSE_DELAY   = 1000;   // Time the mower revreses at the wire
 
 int DriveCurrentcounter = 0;      // Counter that gets added while high load. Used for not giving up directly on high load
 int DriveCurrentcountermax = 10;  //Used for not giving up directly on high load
@@ -234,6 +241,8 @@ void setup() {
   pinMode(pinrightDriveCurrent, INPUT);
   pinMode(pinbladeCurrent, INPUT);
 
+  pinMode(pinbatteryVoltage, INPUT);
+
   pingTimer[0] = millis() + 75;
   for (uint8_t i = 1; i < SONAR_NUM; i++)
     pingTimer[i] = pingTimer[i - 1] + PING_INTERVAL;
@@ -275,18 +284,28 @@ void loop() {
             DriveCurrentcounter = 0;
           }
         }
-        /*
-          // Battery low?
-          if (battv <= 215) {
-          // Battery volt is to low!
-          Serial.println("Battery low, stop!");
-          LED_fullBat.off();
-          pinLED_lowBat.on();
-          state = 0;
-          set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
-          sleep_enable();
-          }
-        */
+        if (Battery_Monitor == 1) {
+          // read the value at analog input
+          value_bat = analogRead(pinbatteryVoltage);
+          vout = (value_bat * 4.9) / 1024.0;
+          battv = vout / (R2 / (R1 + R2));
+
+          DPRINT("Voltage = ");
+          DPRINTLN(battv, 2);
+          _batt_timer = 0; // Reset counter
+          /*
+            // Battery low?
+            if (battv <= Battery_GoHomeIfBelow) {
+            // Battery volt is to low!
+            Serial.println("Battery low, stop!");
+            LED_fullBat.off();
+            pinLED_lowBat.on();
+            state = 0;
+            set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
+            sleep_enable();
+            }
+          */
+        }
         _batt_timer = 0; // Reset counter
       }// Check battery voltage END
 
@@ -306,7 +325,7 @@ void loop() {
 
       DPRINT("range_right: ");
       DPRINTLN(rightSensor);
-      
+
       obstacleAvoidance();
       startTimer();
     }
