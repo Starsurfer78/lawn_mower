@@ -50,12 +50,14 @@ void leftOFF() {
   // Turns left motor OFF
   digitalWrite(pinMotorLeft_forward, LOW);
   digitalWrite(pinMotorLeft_reverse, LOW);
+  DPRINTLN("Left OFF");
 }
 
 void rightOFF() {
   // Turns right motor OFF
   digitalWrite(pinMotorRight_forward, LOW);
   digitalWrite(pinMotorRight_reverse, LOW);
+  DPRINTLN("Right OFF");
 }
 
 void SetPWM(const long pwm_num, byte pwm_channel){

@@ -2,9 +2,9 @@ void checkCurrent() {
   // Current Readings logic - used for checking if there is an
   // excessive current draw from one of the motors. If there is,
   // it's possible that the motors are drawing their stall current
-  int pinleftDriveCurrent = measureCurrent(pinleftDriveCurrent);
-  int pinrightDriveCurrent = measureCurrent(pinrightDriveCurrent);
-  int pinbladeCurrent = measureCurrent(pinbladeCurrent);
+  leftDriveCurrent = measureCurrent(pinleftDriveCurrent);
+  rightDriveCurrent = measureCurrent(pinrightDriveCurrent);
+  bladeCurrent = measureCurrent(pinbladeCurrent);
   if (pinleftDriveCurrent > Drivemaxleft || pinrightDriveCurrent > Drivemaxright || pinbladeCurrent > Blademax) {
     //stopMotors();
     //bladesOFF();

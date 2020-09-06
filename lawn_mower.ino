@@ -5,6 +5,20 @@
    Please make sure you have installed all the library files to the Arduino libraries folder
    All my work falls under the GNU Public License
 
+
+  Der L50 kennt folgende Spannungszustände:
+  Ladespannung liegt an den Ladekontakten an = HIGH BATTERY (grün) blinkt -> Ladung
+  Spannung > 24,9 Volt = HIGH BATTERY (grün) leuchtet -> Normalbetrieb
+  Spannung >22,5V  und <=24,9V = LOW BATTERY blinkt -> Robi bleibt stehen
+  Spannung <22,5V = LOW BATTERY (brennt) -> Robi schaltet sich ab!
+
+  Ambrogio L50 Tasterbelegung (d.h. die Belegung am Original L50-Board).
+  Taster also an Pin3 anklemmen,
+  Masse an Pin4.
+  (eigene LEDs ggf. an Pin1 bzw. Pin2
+  die LEDs am Arduino nur mit Vorwiderstand z.B. 220 Ohm benutzen).
+  https://forum.ardumower.de/data/media/kunena/attachments/905/h4511ad4.png/
+
 */
 
 #include <NewPing.h>              // https://github.com/microflo/NewPing/blob/master/NewPing.h
@@ -42,14 +56,14 @@ byte pwmChannel;
 uint8_t maximumSpeed = 255; //PWM value for maximum speed.
 uint8_t minSpeed = 100;     //PWM value for minimum speed.
 
-int Drivemaxleft = 250;     // Define variable for max motor current left and set default
-int Drivemaxright = 250;    // Define variable for max motor current right and set default
+int Drivemaxleft = 2.9;     // Define variable for max motor current left and set default
+int Drivemaxright = 2.9;    // Define variable for max motor current right and set default
 
 // ------ Cutter Motor -------------------------------------
-#define RPWM 8
+#define RPWM 4
 #define L_EN 9
 #define R_EN 10
-int PWM_Blade_Speed = 250;    // PWM signal for the cutter motor (speed of blade).
+int PWM_Blade_Speed = 255;    // PWM signal for the cutter motor (speed of blade).
 int Blademax = 250;           // Define variable for max Blade current
 
 bool Cutting_Blades_Activate    = 1;      // Activates the cutting blades and disc in the code
@@ -70,7 +84,7 @@ float bladeCurrent = 0.0;
 #define MAX_DISTANCE 200     //Max distance to detect obstacles.
 #define PING_INTERVAL 33     //Looping the Sonar pings after 33 microseconds.
 
-uint8_t MIN_RANGE_OBSTACLE = 5;     //5 cm is the blind zone of the sensor.
+uint8_t MIN_RANGE_OBSTACLE = 25;     //5 cm is the blind zone of the sensor.
 uint8_t MAX_RANGE_OBSTACLE = 75;    //The maximum range to check if obstacle exists.
 
 // ------ Analog In pins -------------------------------------
@@ -96,7 +110,7 @@ RBD::Light  LED_on(pinLED_on);
 RBD::Light  LED_pause(pinLED_pause);
 RBD::Light  LED_lowBat(pinLED_lowBat);
 RBD::Light  LED_fullBat(pinLED_fullBat);
-  
+
 // ------ Buzzer -------------------------------------
 #define pinBuzzer 53               // Buzzer
 
@@ -166,9 +180,7 @@ enum NavigationStates {
   LEFT,
   CENTER,
   RIGHT,
-  BACK,
-  START,
-  STOP
+  BACK
 };
 NavigationStates _navState = CHECK_ALL;
 
@@ -205,13 +217,13 @@ void setup() {
   LED_on.on();
   //pinMode(pinLED_on, OUTPUT);
   //digitalWrite(pinLED_on, HIGH);
-  LED_pause.off();
+  LED_pause.on();
   //pinMode(pinLED_pause, OUTPUT);
   //digitalWrite(pinLED_pause, 0);
   LED_lowBat.off();
   //pinMode(pinLED_lowBat, OUTPUT);
   //digitalWrite(pinLED_lowBat, 0);
-  LED_fullBat.off();
+  LED_fullBat.on();
   //pinMode(pinLED_fullBat, OUTPUT);
   //digitalWrite(pinLED_fullBat, 0);
 
@@ -230,87 +242,82 @@ void setup() {
   stopMotors();
   setupBlades();
   bladesOFF();
-  // set initial state
-  _navState = START;
+  state = 0;
+  DPRINT("STATE: ");
+  DPRINTLN(state);
+  DPRINTLN("Setup ENDE");
 } // END SETUP
 
 void loop() {
 
   if (Button_startstop.onPressed()) {
     state++;
-    if (state == 1) {
-      LED_pause.off();
+    DPRINT("STATE: ");
+    DPRINTLN(state);
+  }
+  if (state == 1) {
+    LED_pause.off();
+    if (isTimeForLoop(LOOPING)) {
+      DPRINTLN("Start Driving");
+      bladesON();
+      // Check battery voltage
+      if (_batt_timer == 10) { // Dont check battery every time
+        // Measure Current
+        checkCurrent();
 
-      if (isTimeForLoop(LOOPING)) {
-        // Check battery voltage
-        if (_batt_timer == 10) { // Dont check battery every time
-          // Measure Current
-          leftDriveCurrent = measureCurrent(pinleftDriveCurrent);
-          rightDriveCurrent = measureCurrent(pinrightDriveCurrent);
-          bladeCurrent = measureCurrent(pinbladeCurrent);
-          /*
-          DPRINT("leftDriveCurrent: ");
-          DPRINT(leftDriveCurrent);
-          DPRINTLN(" Amp");
-
-          DPRINT("rightDriveCurrent: ");
-          DPRINT(rightDriveCurrent);
-          DPRINTLN(" Amp");
-
-          DPRINT("bladeCurrent: ");
-          DPRINT(bladeCurrent);
-          DPRINTLN("Amp");
-          */
-          
-          /*
-                if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright || bladeCurrent > Blademax) {
-                  //stopMotors();
-                  //bladesOFF();
-                  _navState = STOP;
-                  DPRINT("ERROR: Overload");
-                }
-          */
-          if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
-            // Add to load counter
-            DriveCurrentcounter++;
-            if (DriveCurrentcounter >= DriveCurrentcountermax) {
-              // Turn around
-              DPRINTLN("High drive wheel load, turn around");
-              _navState = BACK;
-              DriveCurrentcounter = 0;
-            }
+        if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
+          // Add to load counter
+          DriveCurrentcounter++;
+          if (DriveCurrentcounter >= DriveCurrentcountermax) {
+            // Turn around
+            DPRINTLN("High drive wheel load, turn around");
+            _navState = BACK;
+            DriveCurrentcounter = 0;
           }
-          /*
-            // Battery low?
-            if (battv <= 215) {
-            // Battery volt is to low!
-            Serial.println("Battery low, stop!");
-            LED_fullBat.off();
-            pinLED_lowBat.on();
-            state = 0;
-            set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
-            sleep_enable();
-            }
-          */
-          _batt_timer = 0; // Reset counter
-        }// Check battery voltage END
+        }
+        /*
+          // Battery low?
+          if (battv <= 215) {
+          // Battery volt is to low!
+          Serial.println("Battery low, stop!");
+          LED_fullBat.off();
+          pinLED_lowBat.on();
+          state = 0;
+          set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
+          sleep_enable();
+          }
+        */
+        _batt_timer = 0; // Reset counter
+      }// Check battery voltage END
 
-        _batt_timer = _batt_timer + 1;
-        // Debug
-        DPRINT("batt_timer: ");
-        DPRINTLN(_batt_timer);
+      _batt_timer = _batt_timer + 1;
+      // Debug
+      //DPRINT("batt_timer: ");
+      //DPRINTLN(_batt_timer);
 
-        sensorCycle();
-        applyKF();
-        obstacleAvoidance();
-        startTimer();
-      }
-      else {
-        state = 0;
-        stopMotors();
-        bladesOFF();
-        LED_pause.on();
-      }
+      sensorCycle();
+      applyKF();
+
+      DPRINT("range_left: ");
+      DPRINTLN(leftSensor);
+
+      DPRINT("range_center: ");
+      DPRINTLN(centerSensor);
+
+      DPRINT("range_right: ");
+      DPRINTLN(rightSensor);
+      
+      obstacleAvoidance();
+      startTimer();
     }
-  }//Button Start/Stop
+
+  }// if state=1
+
+  if (state == 2) {
+    state = 0;
+    stopMotors();
+    bladesOFF();
+    LED_pause.on();
+
+  }
 } // END LOOP

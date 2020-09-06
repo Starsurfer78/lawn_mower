@@ -8,8 +8,8 @@ void setupBlades()  {
 // Turns the Cutter Motor ON
 void bladesON()  {
   if (Cutting_Blades_Activate == 1) {                                       // Blades are turn ON in settings and will spin!
-    digitalWrite(R_EN, HIGH);
-    digitalWrite(L_EN, HIGH);
+    //digitalWrite(R_EN, HIGH);
+    //digitalWrite(L_EN, HIGH);
     delay(20);
     analogWrite(RPWM, PWM_Blade_Speed);
     DPRINT(F("Cutter:ON_|"));
@@ -24,5 +24,6 @@ void bladesON()  {
 void bladesOFF()  {
   digitalWrite(R_EN, LOW);
   digitalWrite(L_EN, LOW);
+  analogWrite(RPWM, 0);
   DPRINT(F("Cutter:0FF"));
 }

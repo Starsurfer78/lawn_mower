@@ -4,6 +4,13 @@ NewPing sonar[SONAR_NUM] = {
   NewPing(pinright_Sensor_trigger, pinright_Sensor_echo, MAX_DISTANCE)
 };
 
+/*
+  create Kalman filter objects for the sensors.
+   SimpleKalmanFilter(e_mea, e_est, q);
+   e_mea: Measurement Uncertainty
+   e_est: Estimation Uncertainty
+   q: Process Noise
+*/
 SimpleKalmanFilter KF_Left(2, 2, 0.01);
 SimpleKalmanFilter KF_Center(2, 2, 0.01);
 SimpleKalmanFilter KF_Right(2, 2, 0.01);
