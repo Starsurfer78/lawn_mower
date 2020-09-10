@@ -14,13 +14,13 @@ void checkCurrent() {
 int measureCurrent(int currentSenseAnalogPin) {
   //  return analogInputToVolts(analogRead(currentSenseAnalogPin)) / 0.13;
   adcValue = analogRead(currentSenseAnalogPin);
-  adcVoltage = (adcValue / 1024.0) * 5000;
-  currentValue = ((adcVoltage - offsetVoltage) / sensitivity);
+  Voltage = (adcValue / 1024.0) * 5000;    // Gets you mV
+  Amps = ((Voltage - offsetVoltage) / sensitivity);
   DPRINT("Raw Sensor Value = " );
   DPRINTLN(adcValue);
   DPRINT("Voltage(mV) = ");
-  DPRINTLN(adcVoltage, 3);
+  DPRINTLN(Voltage, 3);
   DPRINT("Current = ");
-  DPRINTLN(currentValue, 3);
-  return currentValue;
+  DPRINTLN(Amps, 3);
+  return Amps;
 }

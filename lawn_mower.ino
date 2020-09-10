@@ -139,11 +139,11 @@ float R2 = 20000.0; //20k
 int value_bat = 0;
 
 // ------ ASC712 Current Sensor (30A) -------------------------------------
-int sensitivity = 66;
+int sensitivity = 66;   // use 100 for 20A Module and 66 for 30A Module
 int adcValue = 0;
 int offsetVoltage = 2500;
-double adcVoltage = 0;
-double currentValue = 0;
+double Voltage = 0;    //voltage measuring
+double Amps = 0;      // Current measuring
 
 int LOOPING              = 10;    //Loop for every 10 milliseconds.
 int DECREESE_SPEED_LOOP  = 500;   //Give some time to sensors for few more readings.
