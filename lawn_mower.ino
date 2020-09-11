@@ -135,7 +135,7 @@ float Battery_chargingTimeout       = 12600000;     // safety timer for charging
 float vout = 0.0;
 float battv = 0.0;
 float R1 = 100000.0; //100k
-float R2 = 20000.0; //20k
+float R2 = 10000.0; //10k
 int value_bat = 0;
 
 // ------ ASC712 Current Sensor (30A) -------------------------------------
@@ -215,7 +215,7 @@ bool isTimerPosition(int _mSec) {
   return (millis() - _timerStartPosition) > _mSec;
 }
 
-int state = 0;
+int button_state = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -251,20 +251,20 @@ void setup() {
   stopMotors();
   setupBlades();
   bladesOFF();
-  state = 0;
-  DPRINT("STATE: ");
-  DPRINTLN(state);
+  button_state = 0;
+  DPRINT("Button STATE: ");
+  DPRINTLN(button_state);
   DPRINTLN("Setup ENDE");
 } // END SETUP
 
 void loop() {
 
   if (Button_startstop.onPressed()) {
-    state++;
-    DPRINT("STATE: ");
-    DPRINTLN(state);
+    button_state++;
+    DPRINT("Button STATE: ");
+    DPRINTLN(button_state);
   }
-  if (state == 1) {
+  if (button_state == 1) {
     LED_pause.off();
     if (isTimeForLoop(LOOPING)) {
       DPRINTLN("Start Driving");
@@ -300,9 +300,9 @@ void loop() {
             Serial.println("Battery low, stop!");
             LED_fullBat.off();
             pinLED_lowBat.on();
-            state = 0;
-            set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
-            sleep_enable();
+            button_state = 0;
+            //set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
+            //sleep_enable();
             }
           */
         }
@@ -332,8 +332,8 @@ void loop() {
 
   }// if state=1
 
-  if (state == 2) {
-    state = 0;
+  if (button_state == 2) {
+    button_state = 0;
     stopMotors();
     bladesOFF();
     LED_pause.on();
