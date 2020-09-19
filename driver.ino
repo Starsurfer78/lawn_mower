@@ -12,22 +12,25 @@ void stopMotors() {
   analogWrite(pinMotorLeft_forward, LOW);    //Motor 2
   analogWrite(pinMotorLeft_reverse, LOW);
   DPRINTLN("Stop Motors");
+  //mower_state = STOP;
 }
 
-void moveForward(uint8_t pwmValue) {
+void moveForward(uint8_t pwmRvalue, uint8_t pwmLvalue) {
   analogWrite(pinMotorRight_reverse, LOW);
-  analogWrite(pinMotorRight_forward, pwmValue);   //Motor 1
+  analogWrite(pinMotorRight_forward, pwmRvalue);   //Motor 1
   analogWrite(pinMotorLeft_reverse, LOW);
-  analogWrite(pinMotorLeft_forward, pwmValue);    //Motor 2
+  analogWrite(pinMotorLeft_forward, pwmLvalue);    //Motor 2
   DPRINTLN("Move Forward");
+  //mower_state = GO_FORWARD;
 }
 
-void moveBackward(uint8_t pwmValue) {
+void moveBackward(uint8_t pwmRvalue, uint8_t pwmLvalue) {
   analogWrite(pinMotorRight_forward, LOW);       //Motor 1
-  analogWrite(pinMotorRight_reverse, pwmValue);
+  analogWrite(pinMotorRight_reverse, pwmRvalue);
   analogWrite(pinMotorLeft_forward, LOW);        //Motor 2
-  analogWrite(pinMotorLeft_reverse, pwmValue);
+  analogWrite(pinMotorLeft_reverse, pwmLvalue);
   DPRINTLN("Move Backward");
+  //mower_state = GO_BACKWARD;
 }
 
 void moveLeft(uint8_t pwmValue) {
@@ -36,6 +39,7 @@ void moveLeft(uint8_t pwmValue) {
   analogWrite(pinMotorLeft_forward, LOW);
   analogWrite(pinMotorLeft_reverse, pwmValue);   //Left wheel backward.
   DPRINTLN("Move LEFT");
+  //mower_state = TURN_LEFT_30;
 }
 
 void moveRight(uint8_t pwmValue) {
@@ -44,21 +48,9 @@ void moveRight(uint8_t pwmValue) {
   analogWrite(pinMotorLeft_reverse, LOW);
   analogWrite(pinMotorLeft_forward, pwmValue);
   DPRINTLN("Move RIGHT");
+  //mower_state = TURN_RIGHT_30;
 }
 
-void leftOFF() {
-  // Turns left motor OFF
-  digitalWrite(pinMotorLeft_forward, LOW);
-  digitalWrite(pinMotorLeft_reverse, LOW);
-  DPRINTLN("Left OFF");
-}
-
-void rightOFF() {
-  // Turns right motor OFF
-  digitalWrite(pinMotorRight_forward, LOW);
-  digitalWrite(pinMotorRight_reverse, LOW);
-  DPRINTLN("Right OFF");
-}
 
 void SetPWM(const long pwm_num, byte pwm_channel){
   if(pwm_channel==1){ // Right MOTOR
@@ -77,6 +69,7 @@ void go_Robot(){
   analogWrite(pinMotorLeft_reverse, LOW);
   analogWrite(pinMotorLeft_forward, pwmLvalue);
   DPRINTLN("Start mowing");
+  //mower_state = GO_FORWARD;
 }
 
 void poweroff(){
@@ -84,6 +77,7 @@ void poweroff(){
   bladesOFF();
   digitalWrite(pinLED_pause, HIGH);
   DPRINTLN("Power off");
+  //mower_state = STOP;
 }
 
 //Return 1 or 0 from a random number.

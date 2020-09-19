@@ -5,60 +5,75 @@ NewPing sonar[SONAR_NUM] = {
 };
 
 /*
-  create Kalman filter objects for the sensors.
-   SimpleKalmanFilter(e_mea, e_est, q);
-   e_mea: Measurement Uncertainty
-   e_est: Estimation Uncertainty
-   q: Process Noise
+    stores a bool for each sensor (left, front, and right respectively
+    true if nearest obstacle is within TURN_DIST
+    true if not
 */
-SimpleKalmanFilter KF_Left(2, 2, 0.01);
-SimpleKalmanFilter KF_Center(2, 2, 0.01);
-SimpleKalmanFilter KF_Right(2, 2, 0.01);
+bool sensor[3] = {false, false, false};
 
-//looping the Sonar sensors
-void sensorCycle() {
-  for (uint8_t i = 0; i < SONAR_NUM; i++) {
-    if (millis() >= pingTimer[i]) {
-      pingTimer[i] += PING_INTERVAL * SONAR_NUM;
-      if (i == 0 && currentSensor == SONAR_NUM - 1) oneSensorCycle();
-      sonar[currentSensor].timer_stop();
-      currentSensor = i;
-      cm[currentSensor] = 0;
-      sonar[currentSensor].ping_timer(echoCheck);
+// stores all possible sensor states
+bool reactions[NUM_CASES][SONAR_NUM] = {
+  {false, false, false}, // 0: no obstacles
+  {false, true, false},  // 1: obstacle in front
+  {false, true, true},   // 2: obstacles front and right
+  {true, true, false},   // 3: obstacles front and left
+  {true, true, true},    // 4: obstacles front, left, and right
+  {true, false, true},   // 5: obstacles left and right
+  {false, false, true},  // 6: obstacle to the right
+  {true, false, false}
+  }; // 7: obstacle to the left
+
+void updateSensor() {
+  for (int i = 0; i < SONAR_NUM; i++) {
+    int dist = sonar[i].ping_cm();
+    // if sonar returns 0 nearest obstacle is out of range
+    if (dist == 0) sensor[i] = false;
+    else sensor[i] = dist < TURN_DIST;
+  }
+}
+
+int compareCases() {
+  for (int i = 0; i < NUM_CASES; i++) {
+    bool flag = true;
+    for (int j = 0; j < SONAR_NUM; j++) {
+      if (reactions[i][j] != sensor[j]) flag = false;
     }
+    if (flag) return i;
   }
 }
 
-// If ping received, set the sensor distance to array.
-void echoCheck() {
-  if (sonar[currentSensor].check_timer())
-    cm[currentSensor] = sonar[currentSensor].ping_result / US_ROUNDTRIP_CM;
-}
-
-//Return the last valid value from the sensor.
-void oneSensorCycle() {
-  leftSensor   = returnLastValidRead(0, cm[0]);
-  centerSensor = returnLastValidRead(1, cm[1]);
-  rightSensor  = returnLastValidRead(2, cm[2]);
-}
-
-//If sensor value is 0, then return the last stored value different than 0.
-int returnLastValidRead(uint8_t sensorArray, uint8_t cm) {
-  if (cm != 0) {
-    return oldSensorReading[sensorArray] = cm;
-  } else {
-    return oldSensorReading[sensorArray];
+void checkSonar() {
+  switch (compareCases()) {
+    case 0: // no obstacles
+      mower_state = GO_FORWARD;
+      break;
+    case 1: // obstacle in front
+      startTimerPosition();
+      mower_state = TURN_LEFT_90;
+      break;
+    case 2: // obstacles front and right
+      startTimerPosition();
+      mower_state = TURN_LEFT_90;
+      break;
+    case 3: // obstacles front and left
+      startTimerPosition();
+      mower_state = TURN_RIGHT_90;
+      break;
+    case 4: // obstacles front, left, and right      
+      startTimerPosition();
+      mower_state = TURN_LEFT_180;
+      break;
+    case 5: // obstacles left and right
+      startTimerPosition();
+      mower_state = TURN_LEFT_180;
+      break;
+    case 6: // obstacle to the right
+      startTimerPosition();
+      mower_state = TURN_LEFT_30;
+      break;
+    case 7: // obstacle to the left
+      startTimerPosition();
+      mower_state = TURN_RIGHT_30;
+      break;
   }
-}
-
-//Apply Kalman Filter to sensor reading.
-void applyKF() {
-  isObstacleLeft = obstacleDetection(KF_Left.updateEstimate(leftSensor));
-  isObstacleCenter = obstacleDetection(KF_Center.updateEstimate(centerSensor));
-  isObstacleRight = obstacleDetection(KF_Right.updateEstimate(rightSensor));
-}
-
-//Define the minimum and maximum range of the sensors, and return true if an obstacle is in range.
-bool obstacleDetection(int sensorRange) {
-  if ((MIN_RANGE_OBSTACLE <= sensorRange) && (sensorRange <= MAX_RANGE_OBSTACLE)) return true; else return false;
 }

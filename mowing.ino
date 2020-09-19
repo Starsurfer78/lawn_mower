@@ -13,13 +13,11 @@ void obstacleAvoidance()
  
     case MAX_SPEED: {
         moveForward(maximumSpeed);
-        DPRINTLN("Move forward max Speed");
         _navState = CHECK_ALL;
       } break;
  
     case SPEED_DECREASE: {
         moveForward(minSpeed);
-        DPRINTLN("Move forward low Speed");
         //Wait for few more readings at low speed and then go to check the obstacle position
         if (isTimerReady(DECREESE_SPEED_LOOP)) _navState = CHECK_OBSTACLE_POSITION;
       } break;
@@ -31,7 +29,7 @@ void obstacleAvoidance()
         }
         else if (isObstacleLeft == 1 && isObstacleCenter == 0 && isObstacleRight == 0) {
           startTimerPosition();
-          _navState = LEFT;
+          _navState = RIGHT;
         }
         else if (isObstacleLeft == 0 && isObstacleCenter == 1 && isObstacleRight == 0) {
           startTimerPosition();
@@ -39,7 +37,7 @@ void obstacleAvoidance()
         }
         else if (isObstacleLeft == 0 && isObstacleCenter == 0 && isObstacleRight  == 1) {
           startTimerPosition();
-          _navState = RIGHT;
+          _navState = LEFT;
         }
         else if (isObstacleLeft == 1 && isObstacleCenter == 1 && isObstacleRight == 1) {
           startTimerPosition();
@@ -49,8 +47,6 @@ void obstacleAvoidance()
   
     case LEFT: { //Move left and check obstacle. If obstacle exists, go again to left, else exit
         moveLeft(minSpeed);
-        DPRINTLN("Move Left min Speed");
-        //MOVE_TO_NEW_POSITION = random(MOVE_TURN_DELAY_MIN, MOVE_TURN_DELAY_MAX);
         if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
           if (isObstacleLeft == 1) _navState = LEFT;
           else _navState = CHECK_ALL;
@@ -63,8 +59,6 @@ void obstacleAvoidance()
  
     case RIGHT: {
         moveRight(minSpeed);
-        DPRINTLN("Move right min Speed");
-        //MOVE_TO_NEW_POSITION = random(MOVE_TURN_DELAY_MIN, MOVE_TURN_DELAY_MAX);
         if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
           if (isObstacleRight == 1) _navState = RIGHT;
           else _navState = CHECK_ALL;
@@ -73,8 +67,7 @@ void obstacleAvoidance()
  
     case BACK: {
         moveBackward(minSpeed);
-        DPRINTLN("Move backward min Speed");
-        if (isTimerPosition(MOVE_REVERSE_DELAY)) {
+        if (isTimerPosition(MOVE_TO_NEW_POSITION)) {
           if (randomMove() == 1)  _navState = LEFT; else  _navState = RIGHT;
         }
       } break;
@@ -82,6 +75,6 @@ void obstacleAvoidance()
 }
 
 
-void cut_the_gras(){
+void cut_the_gras() {
   bladesON();
 }

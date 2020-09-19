@@ -1,4 +1,14 @@
 /*
+  Obstacle avoidance example
+  by Andrew Kramer
+  8/3/2015
+
+  Uses 3 ultrasonic sensors to determine
+  if nearest obstacle is too close.
+  Outlines 8 possible cases for
+  positions of obstacles.
+*/
+/*
    Mowing Code based on https://www.intorobotics.com/obstacle-avoidance-robot/
 
    Ambrogio L50 Deluxe Lawn Mower Arduino Code
@@ -22,11 +32,9 @@
 */
 
 #include <NewPing.h>              // https://github.com/microflo/NewPing/blob/master/NewPing.h
-#include <SimpleKalmanFilter.h>   // https://github.com/denyssene/SimpleKalmanFilter
 #include <RBD_Timer.h>            // https://github.com/alextaujenis/RBD_Timer
 #include <RBD_Button.h>           // https://github.com/alextaujenis/RBD_Button
 #include <RBD_Light.h>            // https://github.com/alextaujenis/RBD_Light
-
 
 #define DEBUG  // Comment to disable debug serial output.
 #ifdef DEBUG
@@ -46,46 +54,37 @@ const int pinMotorRight_reverse = 3;   //(LPWM) to Arduino pin 3(PWM)
 
 //const int MotorLeft_R_EN = 10;     (VCC) to Arduino 5V pin
 //const int MotorLeft_L_EN = 11;     (VCC) to Arduino 5V pin
-const int pinMotorLeft_forward = 6;    //(RPWM) to Arduino pin 6(PWM)
-const int pinMotorLeft_reverse = 7;    //(LPWM) to Arduino pin 7(PWM)
+const int pinMotorLeft_forward = 4;    //(RPWM) to Arduino pin 6(PWM)
+const int pinMotorLeft_reverse = 5;    //(LPWM) to Arduino pin 7(PWM)
 
-long pwmLvalue = 245;   // Straight line speed Left Wheel (Looking from back of mower)
-long pwmRvalue = 245;   // Straight line speed Right Wheel (Looking from back of mower)
+long pwmLvalue = 248;   // Straight line speed Left Wheel (Looking from back of mower)
+long pwmRvalue = 250;   // Straight line speed Right Wheel (Looking from back of mower)
 byte pwmChannel;
 
-uint8_t maximumSpeed = 245; //PWM value for maximum speed.
-uint8_t minSpeed = 100;     //PWM value for minimum speed.
-
-int Drivemaxleft = 2.9;     // Define variable for max motor current left and set default
-int Drivemaxright = 2.9;    // Define variable for max motor current right and set default
+uint8_t maximumSpeed = 250; //PWM value for maximum speed.
+uint8_t minSpeed = 145;     //PWM value for minimum speed.
 
 // ------ Cutter Motor -------------------------------------
-#define RPWM 4
-#define L_EN 9
-#define R_EN 10
+#define RPWM 7
+#define L_EN 11    //(VCC) to Arduino 5V pin
+#define R_EN 10   //(VCC) to Arduino 5V pin
 int PWM_Blade_Speed = 250;    // PWM signal for the cutter motor (speed of blade).
 int Blademax = 250;           // Define variable for max Blade current
 
 bool Cutting_Blades_Activate    = 1;      // Activates the cutting blades and disc in the code
 
-float leftDriveCurrent = 0.0;
-float rightDriveCurrent = 0.0;
-float bladeCurrent = 0.0;
-
 // ------ SONAR -------------------------------------
 #define pinleft_Sensor_trigger   34
-#define pinleft_Sensor_echo      35
+#define pinleft_Sensor_echo      40
 #define pincenter_Sensor_trigger 36
-#define pincenter_Sensor_echo    37
+#define pincenter_Sensor_echo    42
 #define pinright_Sensor_trigger  38
-#define pinright_Sensor_echo     39
+#define pinright_Sensor_echo     44
 
-#define SONAR_NUM 3          //The number of Sonar sensors.
-#define MAX_DISTANCE 100     //Max distance to detect obstacles.
-#define PING_INTERVAL 33     //Looping the Sonar pings after 33 microseconds.
-
-uint8_t MIN_RANGE_OBSTACLE = 5;     //5 cm is the blind zone of the sensor.
-uint8_t MAX_RANGE_OBSTACLE = 25;    //The maximum range to check if obstacle exists.
+#define TURN_DIST 30 // distance at which the bot will turn
+#define MAX_DISTANCE 200 // max range of sonar sensors
+#define SONAR_NUM 3 // number of sonar sensors
+#define NUM_CASES 8 // number of reaction cases
 
 // ------ Analog In pins -------------------------------------
 #define pinbatteryVoltage A4   // battery voltage sensor
@@ -121,7 +120,7 @@ RBD::Button Button_onoff(pinButton_onoff); // input_pullup on digital pin
 RBD::Button Button_startstop(pinButton_startstop); // input_pullup on digital pin
 
 // ------ battery -------------------------------------
-bool Battery_Monitor                = 0;            // monitor battery and charge voltage?
+bool Battery_Monitor                = 1;            // monitor battery and charge voltage?
 float Battery_Max                   = 29.4;         // battery reference Voltage (fully charged) PLEASE ADJUST IF USING A DIFFERENT BATTERY VOLTAGE! FOR a 12V SYSTEM TO 14.4V
 float Battery_GoHomeIfBelow         = 23.7;         // drive home voltage (Volt)
 float Battery_SwitchOffIfBelow      = 21.7;         // switch off battery if below voltage (Volt)
@@ -130,6 +129,8 @@ float Battery_ChargingCurrentMax    = 1.6;          // maximum current your char
 float Battery_ChargingFullCurrent   = 0.3;          // current flowing when battery is fully charged
 float Battery_startChargingIfBelow  = 27.0;         // start charging if battery Voltage is below
 float Battery_chargingTimeout       = 12600000;     // safety timer for charging (ms) 12600000 = 3.5hrs
+int Battery_Currentcounter = 0;      // Counter that gets added while high load. Used for not giving up directly on high load
+int Battery_Currentcountermax = 10;  //Used for not giving up directly on high load
 
 
 float vout = 0.0;
@@ -139,57 +140,61 @@ float R2 = 10000.0; //10k
 int value_bat = 0;
 
 // ------ ASC712 Current Sensor (30A) -------------------------------------
+int Drivemaxleft = 2.2;     // Define variable for max motor current left and set default
+int Drivemaxright = 2.2;    // Define variable for max motor current right and set default
+
+float leftDriveCurrent = 0.0;
+float rightDriveCurrent = 0.0;
+float bladeCurrent = 0.0;
+
 int sensitivity = 66;   // use 100 for 20A Module and 66 for 30A Module
-int adcValue = 0;
+const int zeroCurrentValue = 510.8;
+int LEFT_adcValue = 0;
+int RIGHT_adcValue = 0;
+int BLADE_adcValue = 0;
 int offsetVoltage = 2500;
-double Voltage = 0;    //voltage measuring
-double Amps = 0;      // Current measuring
+double rawVoltage = 0;    //voltage measuring
+double LEFT_Amps = 0;      // Current measuring
+double RIGHT_Amps = 0;      // Current measuring
+double BLADE_Amps = 0;      // Current measuring
 
-int LOOPING              = 10;    //Loop for every 10 milliseconds.
-int DECREESE_SPEED_LOOP  = 500;   //Give some time to sensors for few more readings.
-int MOVE_TO_NEW_POSITION = 500;   //Wait for the new position.
-
-int MOVE_TURN_DELAY_MIN  = 1000;   // Min Max Turn time of the Mower after it reverses at the wire.
-int MOVE_TURN_DELAY_MAX  = 2500;   // A random turn time between these numbers is selected by the software
-int MOVE_REVERSE_DELAY   = 1000;   // Time the mower revreses at the wire
 
 int DriveCurrentcounter = 0;      // Counter that gets added while high load. Used for not giving up directly on high load
-int DriveCurrentcountermax = 10;  //Used for not giving up directly on high load
+int DriveCurrentcountermax = 8;  //Used for not giving up directly on high load
 
 /* SETTINGS END */
-
-unsigned long _timerStart         = 0;
-unsigned long _timerStartReady    = 0;
-unsigned long _timerStartPosition = 0;
 
 // Interval for checking Motors Currents and Battery Voltage
 int _batt_timer = 0;
 
-uint8_t oldSensorReading[3];    //Store last valid value of the sensors.
+typedef enum {
+  GO_FORWARD         = 0,
+  GO_BACKWARD        = 1,
+  TURN_LEFT_30          = 2,
+  TURN_LEFT_90          = 3,
+  TURN_LEFT_180          = 4,
+  TURN_RIGHT_30         = 5,
+  TURN_RIGHT_90         = 6,
+  TURN_RIGHT_180         = 7,
+  STOP               = 8
+} state;
 
-uint8_t leftSensor;             //Store the sensor's value.
-uint8_t centerSensor;
-uint8_t rightSensor;
 
-bool isObstacleLeft;           //If obstacle detected or not.
-bool isObstacleCenter;
-bool isObstacleRight;
+state mower_state = STOP;
 
-unsigned long pingTimer[SONAR_NUM]; // Holds the times when the next ping should happen for each sensor.
-unsigned int cm[SONAR_NUM];         // Where the ping distances are stored.
-uint8_t currentSensor = 0;          // Keeps track of which sensor is active.
+int LOOPING              = 50;    //Loop for every 10 milliseconds.
+int MOVE_TURN_DELAY_MIN  = 1000;   // Min Max Turn time of the Mower after it reverses at the wire.
+int MOVE_TURN_DELAY_MAX  = 2500;   // A random turn time between these numbers is selected by the software
+int MOVE_REVERSE_DELAY   = 1000;   // Time the mower revreses at the wire
+int MOVE_TO_NEW_POSITION = 5000;//Wait for the new position.
+int TIME_GO_BACKWARD = 1000;//Wait for the new position.
+int TIME_TURN_30 = 400;//Wait for the new position.
+int TIME_TURN_90 = 800;//Wait for the new position.
+int TIME_TURN_180 = 1300;//Wait for the new position.
 
-enum NavigationStates {
-  CHECK_ALL,
-  MAX_SPEED,
-  SPEED_DECREASE,
-  CHECK_OBSTACLE_POSITION,
-  LEFT,
-  CENTER,
-  RIGHT,
-  BACK
-};
-NavigationStates _navState = CHECK_ALL;
+unsigned long _timerStart         = 0;
+unsigned long _timerStartReady    = 0;
+unsigned long _timerStartPosition = 0;
 
 void startTimer() {
   _timerStart = millis();
@@ -217,22 +222,15 @@ bool isTimerPosition(int _mSec) {
 
 int button_state = 0;
 
+
 void setup() {
   Serial.begin(115200);
   DPRINTLN("SETUP");
   // LED, buzzer, battery
   LED_on.on();
-  //pinMode(pinLED_on, OUTPUT);
-  //digitalWrite(pinLED_on, HIGH);
   LED_pause.on();
-  //pinMode(pinLED_pause, OUTPUT);
-  //digitalWrite(pinLED_pause, 0);
   LED_lowBat.off();
-  //pinMode(pinLED_lowBat, OUTPUT);
-  //digitalWrite(pinLED_lowBat, 0);
   LED_fullBat.on();
-  //pinMode(pinLED_fullBat, OUTPUT);
-  //digitalWrite(pinLED_fullBat, 0);
 
   pinMode(pinBuzzer, OUTPUT);
   digitalWrite(pinBuzzer, 0);
@@ -243,10 +241,6 @@ void setup() {
 
   pinMode(pinbatteryVoltage, INPUT);
 
-  pingTimer[0] = millis() + 75;
-  for (uint8_t i = 1; i < SONAR_NUM; i++)
-    pingTimer[i] = pingTimer[i - 1] + PING_INTERVAL;
-
   setupMotors();
   stopMotors();
   setupBlades();
@@ -255,81 +249,165 @@ void setup() {
   DPRINT("Button STATE: ");
   DPRINTLN(button_state);
   DPRINTLN("Setup ENDE");
-} // END SETUP
+  DPRINTLN("----------------------------");
+}
 
 void loop() {
+
+  //DPRINTLN("-----------------------------");
+  //DPRINT("mower_state:");
+  //DPRINTLN(mower_state);
+  //DPRINTLN("-----------------------------");
 
   if (Button_startstop.onPressed()) {
     button_state++;
     DPRINT("Button STATE: ");
     DPRINTLN(button_state);
+    mower_state = GO_FORWARD;
+    DPRINT("mower_state:");
+    DPRINTLN(mower_state);
+    delay(100);
   }
+
   if (button_state == 1) {
     LED_pause.off();
-    if (isTimeForLoop(LOOPING)) {
-      DPRINTLN("Start Driving");
-      bladesON();
-      // Check battery voltage
-      if (_batt_timer == 10) { // Dont check battery every time
-        // Measure Current
-        checkCurrent();
+    bladesON();
 
-        if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
-          // Add to load counter
-          DriveCurrentcounter++;
-          if (DriveCurrentcounter >= DriveCurrentcountermax) {
-            // Turn around
-            DPRINTLN("High drive wheel load, turn around");
-            _navState = BACK;
-            DriveCurrentcounter = 0;
-          }
-        }
-        if (Battery_Monitor == 1) {
-          // read the value at analog input
-          value_bat = analogRead(pinbatteryVoltage);
-          vout = (value_bat * 4.9) / 1024.0;
-          battv = vout / (R2 / (R1 + R2));
-
-          DPRINT("Voltage = ");
-          DPRINTLN(battv, 2);
-          _batt_timer = 0; // Reset counter
-          /*
-            // Battery low?
-            if (battv <= Battery_GoHomeIfBelow) {
-            // Battery volt is to low!
-            Serial.println("Battery low, stop!");
-            LED_fullBat.off();
-            pinLED_lowBat.on();
-            button_state = 0;
-            //set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
-            //sleep_enable();
-            }
-          */
-        }
-        _batt_timer = 0; // Reset counter
-      }// Check battery voltage END
-
-      _batt_timer = _batt_timer + 1;
-      // Debug
-      //DPRINT("batt_timer: ");
-      //DPRINTLN(_batt_timer);
-
-      sensorCycle();
-      applyKF();
-
-      DPRINT("range_left: ");
-      DPRINTLN(leftSensor);
-
-      DPRINT("range_center: ");
-      DPRINTLN(centerSensor);
-
-      DPRINT("range_right: ");
-      DPRINTLN(rightSensor);
-
-      obstacleAvoidance();
-      startTimer();
+    // Measure Current
+    checkCurrent();
+    updateSensor();
+    if (mower_state != 8 && mower_state == 0) {
+    checkSonar();
     }
+    //go_Robot();
+    /*
+      if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
+      DriveCurrentcounter++;
+      if (DriveCurrentcounter >= DriveCurrentcountermax) {
+        if (leftDriveCurrent > Drivemaxleft) {          // Compare left motor current
+          DPRINTLN("High LEFT wheel load, turn around");
+          moveBackward(minSpeed);
+          moveRight(minSpeed);
+          DriveCurrentcounter = 0;
+        }
+        if (rightDriveCurrent > Drivemaxright) {       // Compare right motor current
+          DPRINTLN("High RIGHT wheel load, turn around");
+          moveBackward(minSpeed);
+          moveLeft(minSpeed);
+          DriveCurrentcounter = 0;
+        }
+      }
+      }
+    */
 
+if (mower_state != 8 && mower_state == 0) {
+    if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
+      // Add to load counter
+      DriveCurrentcounter++;
+      if (DriveCurrentcounter >= DriveCurrentcountermax) {
+        startTimerPosition();
+        // Turn around
+        DPRINTLN("High drive wheel load, turn around");
+        //stopMotors();
+        //DPRINTLN("MOTOR STOPPEN");
+        //delay(50);
+       DPRINTLN("MOTOR BACK");
+       DriveCurrentcounter = 0;
+       mower_state = GO_BACKWARD;
+      }
+    }
+}
+
+    // Check battery voltage
+    if (Battery_Monitor == 1 && _batt_timer == 10) {
+      measureBattery();
+
+      // Battery low?
+      if (battv <= Battery_SwitchOffIfBelow) {
+        Battery_Currentcounter++;
+        if (Battery_Currentcounter >= Battery_Currentcountermax) {
+          // Battery volt is to low!
+          Serial.println("Battery low, stop!");
+          LED_fullBat.off();
+          LED_lowBat.on();
+          LED_pause.on();
+          stopMotors();
+          bladesOFF();
+          button_state = 0;
+          mower_state = STOP;
+          Battery_Currentcounter = 0;
+          //set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
+          //sleep_enable();
+        }
+      }
+      _batt_timer = 0; // Reset counter
+    }
+    _batt_timer = _batt_timer + 1;
+
+    //Movement
+    //0:  GO_FORWARD
+    if (mower_state != 8 && mower_state == 0) {
+      go_Robot();
+    }
+    // 1:  GO_BACKWARD
+    else if (mower_state == 1) {
+      moveBackward (pwmRvalue, pwmLvalue);
+      DPRINTLN("GO_BACKWARD");
+      if (isTimerPosition(TIME_GO_BACKWARD)) {
+        //mower_state = GO_FORWARD;
+        //if (randomMove() == 1)  mower_state = TURN_RIGHT_90; else  mower_state = TURN_LEFT_90;
+        mower_state = TURN_LEFT_90;
+      }
+    }
+    // 2: TURN_LEFT_30
+    else if (mower_state == 2) {
+      moveLeft(maximumSpeed);
+      DPRINTLN("TURN_LEFT_30");
+      if (isTimerPosition(TIME_TURN_30)) {
+        mower_state = GO_FORWARD;
+      }
+    }
+    // 3: TURN_LEFT_90
+    else if (mower_state == 3) {
+      moveLeft(maximumSpeed);
+      DPRINTLN("TURN_LEFT_90");
+      if (isTimerPosition(TIME_TURN_90)) {
+        mower_state = GO_FORWARD;
+      }
+    }
+    // 4:  TURN_LEFT_180
+    else if (mower_state == 4) {
+      moveLeft(maximumSpeed);
+      DPRINTLN("TURN_LEFT_180");
+      if (isTimerPosition(TIME_TURN_180)) {
+        mower_state = GO_FORWARD;
+      }
+    }
+    // 5: TURN_RIGHT_30
+    else if (mower_state == 5) {
+      moveRight(maximumSpeed);
+      DPRINTLN("TURN_RIGHT_30");
+      if (isTimerPosition(TIME_TURN_30)) {
+        mower_state = GO_FORWARD;
+      }
+    }
+    // 6: TURN_RIGHT_90
+    else if (mower_state == 6) {
+      moveRight(maximumSpeed);
+      DPRINTLN("TURN_RIGHT_90");
+      if (isTimerPosition(TIME_TURN_90)) {
+        mower_state = GO_FORWARD;
+      }
+    }
+    // 7: TURN_RIGHT_180
+    else if (mower_state == 7) {
+      moveRight(maximumSpeed);
+      DPRINTLN("TURN_RIGHT_180");
+      if (isTimerPosition(TIME_TURN_180)) {
+        mower_state = GO_FORWARD;
+      }
+    }
+    startTimer();
   }// if state=1
 
   if (button_state == 2) {
@@ -337,6 +415,16 @@ void loop() {
     stopMotors();
     bladesOFF();
     LED_pause.on();
+    mower_state = STOP;
 
   }
 } // END LOOP
+
+/*
+  bool doneTurning()
+  {
+  if (currentTime >= waitTime)
+    return true;
+  return false;
+  }
+*/
