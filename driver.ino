@@ -72,6 +72,14 @@ void go_Robot(){
   //mower_state = GO_FORWARD;
 }
 
+void stop_Robot(int delay_ms){
+  analogWrite(pinMotorRight_reverse, LOW);
+  analogWrite(pinMotorRight_forward, LOW);
+  analogWrite(pinMotorLeft_reverse, LOW);
+  analogWrite(pinMotorLeft_forward, LOW);
+  delay(delay_ms);
+}// void stopRobot(int delay_ms)
+
 void poweroff(){
   stopMotors();
   bladesOFF();

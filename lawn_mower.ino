@@ -57,12 +57,12 @@ const int pinMotorRight_reverse = 3;   //(LPWM) to Arduino pin 3(PWM)
 const int pinMotorLeft_forward = 4;    //(RPWM) to Arduino pin 6(PWM)
 const int pinMotorLeft_reverse = 5;    //(LPWM) to Arduino pin 7(PWM)
 
-long pwmLvalue = 248;   // Straight line speed Left Wheel (Looking from back of mower)
+long pwmLvalue = 250;   // Straight line speed Left Wheel (Looking from back of mower)
 long pwmRvalue = 250;   // Straight line speed Right Wheel (Looking from back of mower)
 byte pwmChannel;
 
 uint8_t maximumSpeed = 250; //PWM value for maximum speed.
-uint8_t minSpeed = 145;     //PWM value for minimum speed.
+uint8_t minSpeed = 140;     //PWM value for minimum speed.
 
 // ------ Cutter Motor -------------------------------------
 #define RPWM 7
@@ -81,7 +81,7 @@ bool Cutting_Blades_Activate    = 1;      // Activates the cutting blades and di
 #define pinright_Sensor_trigger  38
 #define pinright_Sensor_echo     44
 
-#define TURN_DIST 30 // distance at which the bot will turn
+#define TURN_DIST 35 // distance at which the bot will turn
 #define MAX_DISTANCE 200 // max range of sonar sensors
 #define SONAR_NUM 3 // number of sonar sensors
 #define NUM_CASES 8 // number of reaction cases
@@ -119,20 +119,24 @@ RBD::Light  LED_fullBat(pinLED_fullBat);
 RBD::Button Button_onoff(pinButton_onoff); // input_pullup on digital pin
 RBD::Button Button_startstop(pinButton_startstop); // input_pullup on digital pin
 
+int button_state = 0;
+
 // ------ battery -------------------------------------
 bool Battery_Monitor                = 1;            // monitor battery and charge voltage?
 float Battery_Max                   = 29.4;         // battery reference Voltage (fully charged) PLEASE ADJUST IF USING A DIFFERENT BATTERY VOLTAGE! FOR a 12V SYSTEM TO 14.4V
-float Battery_GoHomeIfBelow         = 23.7;         // drive home voltage (Volt)
-float Battery_SwitchOffIfBelow      = 21.7;         // switch off battery if below voltage (Volt)
+float Battery_GoHomeIfBelow         = 24.5;         // drive home voltage (Volt)
+float Battery_SwitchOffIfBelow      = 24.4;         // switch off battery if below voltage (Volt)
 float Battery_SwitchOffIfIdle       = 1;            // switch off battery if idle (minutes)
 float Battery_ChargingCurrentMax    = 1.6;          // maximum current your charger can devliver
 float Battery_ChargingFullCurrent   = 0.3;          // current flowing when battery is fully charged
 float Battery_startChargingIfBelow  = 27.0;         // start charging if battery Voltage is below
 float Battery_chargingTimeout       = 12600000;     // safety timer for charging (ms) 12600000 = 3.5hrs
+
+int _batt_timer = 0;                 // Interval for checking Motors Currents and Battery Voltage
 int Battery_Currentcounter = 0;      // Counter that gets added while high load. Used for not giving up directly on high load
 int Battery_Currentcountermax = 10;  //Used for not giving up directly on high load
 
-
+// ------ voltage divider Battery -------------------------------------
 float vout = 0.0;
 float battv = 0.0;
 float R1 = 100000.0; //100k
@@ -140,13 +144,6 @@ float R2 = 10000.0; //10k
 int value_bat = 0;
 
 // ------ ASC712 Current Sensor (30A) -------------------------------------
-int Drivemaxleft = 2.2;     // Define variable for max motor current left and set default
-int Drivemaxright = 2.2;    // Define variable for max motor current right and set default
-
-float leftDriveCurrent = 0.0;
-float rightDriveCurrent = 0.0;
-float bladeCurrent = 0.0;
-
 int sensitivity = 66;   // use 100 for 20A Module and 66 for 30A Module
 const int zeroCurrentValue = 510.8;
 int LEFT_adcValue = 0;
@@ -158,15 +155,18 @@ double LEFT_Amps = 0;      // Current measuring
 double RIGHT_Amps = 0;      // Current measuring
 double BLADE_Amps = 0;      // Current measuring
 
+float leftDriveCurrent = 0.0;
+float rightDriveCurrent = 0.0;
+float bladeCurrent = 0.0;
 
+int Drivemaxleft = 3.5;           // Define variable for max motor current left and set default
+int Drivemaxright = 3.5;          // Define variable for max motor current right and set default
 int DriveCurrentcounter = 0;      // Counter that gets added while high load. Used for not giving up directly on high load
 int DriveCurrentcountermax = 8;  //Used for not giving up directly on high load
-
 /* SETTINGS END */
 
-// Interval for checking Motors Currents and Battery Voltage
-int _batt_timer = 0;
 
+// Movement Stats
 typedef enum {
   GO_FORWARD         = 0,
   GO_BACKWARD        = 1,
@@ -179,23 +179,23 @@ typedef enum {
   STOP               = 8
 } state;
 
-
+// Inital State
 state mower_state = STOP;
 
-int LOOPING              = 50;    //Loop for every 10 milliseconds.
-int MOVE_TURN_DELAY_MIN  = 1000;   // Min Max Turn time of the Mower after it reverses at the wire.
-int MOVE_TURN_DELAY_MAX  = 2500;   // A random turn time between these numbers is selected by the software
-int MOVE_REVERSE_DELAY   = 1000;   // Time the mower revreses at the wire
-int MOVE_TO_NEW_POSITION = 5000;//Wait for the new position.
-int TIME_GO_BACKWARD = 1000;//Wait for the new position.
-int TIME_TURN_30 = 400;//Wait for the new position.
-int TIME_TURN_90 = 800;//Wait for the new position.
-int TIME_TURN_180 = 1300;//Wait for the new position.
+int LOOPING              = 50;      // Loop for every 10 milliseconds.
+int MOVE_TURN_DELAY_MIN  = 1000;    // Min Max Turn time of the Mower after it reverses at the wire.
+int MOVE_TURN_DELAY_MAX  = 2500;    // A random turn time between these numbers is selected by the software
+int MOVE_TO_NEW_POSITION = 5000;    // Wait for the new position.
+int TIME_GO_BACKWARD = 1000;        // Time the mower revreses.
+int TIME_TURN_30 = 300;             // Wait to turn the mower 30 Degree.
+int TIME_TURN_90 = 900;             // Wait to turn the mower 90 Degree.
+int TIME_TURN_180 = 1400;           // Wait to turn the mower 180 Degree.
 
 unsigned long _timerStart         = 0;
 unsigned long _timerStartReady    = 0;
 unsigned long _timerStartPosition = 0;
 
+// Time Helpers
 void startTimer() {
   _timerStart = millis();
 }
@@ -220,9 +220,7 @@ bool isTimerPosition(int _mSec) {
   return (millis() - _timerStartPosition) > _mSec;
 }
 
-int button_state = 0;
-
-
+// SETUP
 void setup() {
   Serial.begin(115200);
   DPRINTLN("SETUP");
@@ -250,9 +248,19 @@ void setup() {
   DPRINTLN(button_state);
   DPRINTLN("Setup ENDE");
   DPRINTLN("----------------------------");
-}
+} // SETUP END
 
+// LOOP START
 void loop() {
+
+  if (button_state == 0) {
+    button_state = 0;
+    stopMotors();
+    bladesOFF();
+    measureBattery();
+    LED_pause.on();
+    mower_state = STOP;
+  }
 
   //DPRINTLN("-----------------------------");
   //DPRINT("mower_state:");
@@ -266,92 +274,29 @@ void loop() {
     mower_state = GO_FORWARD;
     DPRINT("mower_state:");
     DPRINTLN(mower_state);
-    delay(100);
+    delay(200);
   }
 
   if (button_state == 1) {
     LED_pause.off();
     bladesON();
-
-    // Measure Current
+    // Check battery voltage
+    measureBattery();
     checkCurrent();
+    check_wheel_load();
     updateSensor();
     if (mower_state != 8 && mower_state == 0) {
-    checkSonar();
+      checkSonar();
     }
-    //go_Robot();
-    /*
-      if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
-      DriveCurrentcounter++;
-      if (DriveCurrentcounter >= DriveCurrentcountermax) {
-        if (leftDriveCurrent > Drivemaxleft) {          // Compare left motor current
-          DPRINTLN("High LEFT wheel load, turn around");
-          moveBackward(minSpeed);
-          moveRight(minSpeed);
-          DriveCurrentcounter = 0;
-        }
-        if (rightDriveCurrent > Drivemaxright) {       // Compare right motor current
-          DPRINTLN("High RIGHT wheel load, turn around");
-          moveBackward(minSpeed);
-          moveLeft(minSpeed);
-          DriveCurrentcounter = 0;
-        }
-      }
-      }
-    */
 
-if (mower_state != 8 && mower_state == 0) {
-    if (leftDriveCurrent > Drivemaxleft || rightDriveCurrent > Drivemaxright) {  // High load, we are running in to something?
-      // Add to load counter
-      DriveCurrentcounter++;
-      if (DriveCurrentcounter >= DriveCurrentcountermax) {
-        startTimerPosition();
-        // Turn around
-        DPRINTLN("High drive wheel load, turn around");
-        //stopMotors();
-        //DPRINTLN("MOTOR STOPPEN");
-        //delay(50);
-       DPRINTLN("MOTOR BACK");
-       DriveCurrentcounter = 0;
-       mower_state = GO_BACKWARD;
-      }
-    }
-}
-
-    // Check battery voltage
-    if (Battery_Monitor == 1 && _batt_timer == 10) {
-      measureBattery();
-
-      // Battery low?
-      if (battv <= Battery_SwitchOffIfBelow) {
-        Battery_Currentcounter++;
-        if (Battery_Currentcounter >= Battery_Currentcountermax) {
-          // Battery volt is to low!
-          Serial.println("Battery low, stop!");
-          LED_fullBat.off();
-          LED_lowBat.on();
-          LED_pause.on();
-          stopMotors();
-          bladesOFF();
-          button_state = 0;
-          mower_state = STOP;
-          Battery_Currentcounter = 0;
-          //set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
-          //sleep_enable();
-        }
-      }
-      _batt_timer = 0; // Reset counter
-    }
-    _batt_timer = _batt_timer + 1;
-
-    //Movement
+    //Movements
     //0:  GO_FORWARD
     if (mower_state != 8 && mower_state == 0) {
       go_Robot();
     }
     // 1:  GO_BACKWARD
     else if (mower_state == 1) {
-      moveBackward (pwmRvalue, pwmLvalue);
+      moveBackward (minSpeed, minSpeed);
       DPRINTLN("GO_BACKWARD");
       if (isTimerPosition(TIME_GO_BACKWARD)) {
         //mower_state = GO_FORWARD;
@@ -407,6 +352,11 @@ if (mower_state != 8 && mower_state == 0) {
         mower_state = GO_FORWARD;
       }
     }
+    // 8: STOP
+    else if (mower_state == 8) {
+      stopMotors();
+      DPRINTLN("STOP Mower");
+    }
     startTimer();
   }// if state=1
 
@@ -419,12 +369,3 @@ if (mower_state != 8 && mower_state == 0) {
 
   }
 } // END LOOP
-
-/*
-  bool doneTurning()
-  {
-  if (currentTime >= waitTime)
-    return true;
-  return false;
-  }
-*/
