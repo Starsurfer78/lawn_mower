@@ -83,7 +83,7 @@ void stop_Robot(int delay_ms){
 void poweroff(){
   stopMotors();
   bladesOFF();
-  digitalWrite(pinLED_pause, HIGH);
+  LED_pause.on();
   DPRINTLN("Power off");
   //mower_state = STOP;
 }

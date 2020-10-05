@@ -65,8 +65,7 @@ if (Battery_Monitor == 1 && _batt_timer == 10) {
           LED_fullBat.off();
           LED_lowBat.on();
           LED_pause.on();
-          stopMotors();
-          bladesOFF();
+          poweroff();
           button_state = 0;
           mower_state = STOP;
           Battery_Currentcounter = 0;

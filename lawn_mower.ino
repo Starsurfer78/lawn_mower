@@ -32,6 +32,7 @@
 */
 
 #include <NewPing.h>              // https://github.com/microflo/NewPing/blob/master/NewPing.h
+#include <TinyGPS++.h>
 #include <RBD_Timer.h>            // https://github.com/alextaujenis/RBD_Timer
 #include <RBD_Button.h>           // https://github.com/alextaujenis/RBD_Button
 #include <RBD_Light.h>            // https://github.com/alextaujenis/RBD_Light
@@ -57,19 +58,19 @@ const int pinMotorRight_reverse = 3;   //(LPWM) to Arduino pin 3(PWM)
 const int pinMotorLeft_forward = 4;    //(RPWM) to Arduino pin 6(PWM)
 const int pinMotorLeft_reverse = 5;    //(LPWM) to Arduino pin 7(PWM)
 
-long pwmLvalue = 250;   // Straight line speed Left Wheel (Looking from back of mower)
-long pwmRvalue = 250;   // Straight line speed Right Wheel (Looking from back of mower)
+long pwmLvalue = 243;   // Straight line speed Left Wheel (Looking from back of mower)
+long pwmRvalue = 255;   // Straight line speed Right Wheel (Looking from back of mower)
 byte pwmChannel;
 
-uint8_t maximumSpeed = 250; //PWM value for maximum speed.
-uint8_t minSpeed = 140;     //PWM value for minimum speed.
+uint8_t maximumSpeed = 255; //PWM value for maximum speed.
+uint8_t minSpeed = 145;     //PWM value for minimum speed.
 
 // ------ Cutter Motor -------------------------------------
 #define RPWM 7
 #define L_EN 11    //(VCC) to Arduino 5V pin
 #define R_EN 10   //(VCC) to Arduino 5V pin
-int PWM_Blade_Speed = 250;    // PWM signal for the cutter motor (speed of blade).
-int Blademax = 250;           // Define variable for max Blade current
+int PWM_Blade_Speed = 255;    // PWM signal for the cutter motor (speed of blade).
+int Blademax = 255;           // Define variable for max Blade current
 
 bool Cutting_Blades_Activate    = 1;      // Activates the cutting blades and disc in the code
 
@@ -102,20 +103,36 @@ bool Cutting_Blades_Activate    = 1;      // Activates the cutting blades and di
 
 // ------ LEDs -------------------------------------
 #define pinLED_on 13                  // LED on
-#define pinLED_pause 14                  // LED
-#define pinLED_lowBat 15                  // LED
-#define pinLED_fullBat 16                  // LED
+#define pinLED_pause 12                  // LED
+#define pinLED_lowBat 11                  // LED
+#define pinLED_fullBat 10                  // LED
 RBD::Light  LED_on(pinLED_on);
 RBD::Light  LED_pause(pinLED_pause);
 RBD::Light  LED_lowBat(pinLED_lowBat);
 RBD::Light  LED_fullBat(pinLED_fullBat);
 
+// ------ NEO6m -------------------------------------
+//Serial1
+//Arduino MEGA ==> NEO-6M GPS
+//5V ==> VCC
+//GND ==> GND
+//Tx1 (18) ==> Rx
+//Rx1 (19) ==> Tx                  
+
+// ------ GY-271 MPU6050 -------------------------------------
+#define pinMPU_SCL 21                 
+#define pinMPU_SDA 20
+
+// ------ NODEMCU -------------------------------------
+//Serial2
+//Tx1 (16) ==> D2
+//Rx1 (17) ==> D3 
 // ------ Buzzer -------------------------------------
 #define pinBuzzer 53               // Buzzer
 
 // ------ Buttons -------------------------------------
 #define pinButton_onoff 50               // digital ON/OFF button
-#define pinButton_startstop 51               // digital ON/OFF button
+#define pinButton_startstop 9               // digital ON/OFF button
 RBD::Button Button_onoff(pinButton_onoff); // input_pullup on digital pin
 RBD::Button Button_startstop(pinButton_startstop); // input_pullup on digital pin
 
@@ -125,7 +142,7 @@ int button_state = 0;
 bool Battery_Monitor                = 1;            // monitor battery and charge voltage?
 float Battery_Max                   = 29.4;         // battery reference Voltage (fully charged) PLEASE ADJUST IF USING A DIFFERENT BATTERY VOLTAGE! FOR a 12V SYSTEM TO 14.4V
 float Battery_GoHomeIfBelow         = 24.5;         // drive home voltage (Volt)
-float Battery_SwitchOffIfBelow      = 24.4;         // switch off battery if below voltage (Volt)
+float Battery_SwitchOffIfBelow      = 24.3;         // switch off battery if below voltage (Volt)
 float Battery_SwitchOffIfIdle       = 1;            // switch off battery if idle (minutes)
 float Battery_ChargingCurrentMax    = 1.6;          // maximum current your charger can devliver
 float Battery_ChargingFullCurrent   = 0.3;          // current flowing when battery is fully charged
@@ -159,10 +176,24 @@ float leftDriveCurrent = 0.0;
 float rightDriveCurrent = 0.0;
 float bladeCurrent = 0.0;
 
-int Drivemaxleft = 3.5;           // Define variable for max motor current left and set default
-int Drivemaxright = 3.5;          // Define variable for max motor current right and set default
+int Drivemaxleft = 2.0;           // Define variable for max motor current left and set default
+int Drivemaxright = 2.0;          // Define variable for max motor current right and set default
 int DriveCurrentcounter = 0;      // Counter that gets added while high load. Used for not giving up directly on high load
-int DriveCurrentcountermax = 8;  //Used for not giving up directly on high load
+int DriveCurrentcountermax = 5;  //Used for not giving up directly on high load
+
+// ------- Baudrates Nodemcu/Kompass---------------------------------
+#define CONSOLE_BAUDRATE    115200      // Baudrate for output console
+#define NODEMCU_BAUDRATE    9600        // Baudrate used for communication with Nodemcu
+#define MPU_BAUDRATE    9600        // Baudrate used for communication with TFT-MEGA
+
+int LOOPING              = 50;      // Loop for every 10 milliseconds.
+int MOVE_TURN_DELAY_MIN  = 1000;    // Min Max Turn time of the Mower after it reverses at the wire.
+int MOVE_TURN_DELAY_MAX  = 2500;    // A random turn time between these numbers is selected by the software
+int MOVE_TO_NEW_POSITION = 5000;    // Wait for the new position.
+int TIME_GO_BACKWARD = 1300;        // Time the mower revreses.
+int TIME_TURN_30 = 300;             // Wait to turn the mower 30 Degree.
+int TIME_TURN_90 = 900;             // Wait to turn the mower 90 Degree.
+int TIME_TURN_180 = 1400;           // Wait to turn the mower 180 Degree.
 /* SETTINGS END */
 
 
@@ -181,15 +212,6 @@ typedef enum {
 
 // Inital State
 state mower_state = STOP;
-
-int LOOPING              = 50;      // Loop for every 10 milliseconds.
-int MOVE_TURN_DELAY_MIN  = 1000;    // Min Max Turn time of the Mower after it reverses at the wire.
-int MOVE_TURN_DELAY_MAX  = 2500;    // A random turn time between these numbers is selected by the software
-int MOVE_TO_NEW_POSITION = 5000;    // Wait for the new position.
-int TIME_GO_BACKWARD = 1000;        // Time the mower revreses.
-int TIME_TURN_30 = 300;             // Wait to turn the mower 30 Degree.
-int TIME_TURN_90 = 900;             // Wait to turn the mower 90 Degree.
-int TIME_TURN_180 = 1400;           // Wait to turn the mower 180 Degree.
 
 unsigned long _timerStart         = 0;
 unsigned long _timerStartReady    = 0;
@@ -220,9 +242,22 @@ bool isTimerPosition(int _mSec) {
   return (millis() - _timerStartPosition) > _mSec;
 }
 
+int randTime = 0;
+
+// The TinyGPS++ object
+TinyGPSPlus gps;
+
 // SETUP
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(CONSOLE_BAUDRATE);
+  Serial1.begin(MPU_BAUDRATE);                                    // Open Serial port 1 for the nano communication
+  while (!Serial1) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+  Serial2.begin(NODEMCU_BAUDRATE);
+  while (!Serial2) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
   DPRINTLN("SETUP");
   // LED, buzzer, battery
   LED_on.on();
@@ -243,6 +278,7 @@ void setup() {
   stopMotors();
   setupBlades();
   bladesOFF();
+  poweroff();
   button_state = 0;
   DPRINT("Button STATE: ");
   DPRINTLN(button_state);
@@ -251,14 +287,11 @@ void setup() {
 } // SETUP END
 
 // LOOP START
-void loop() {
-
+void loop() {  
+  
   if (button_state == 0) {
     button_state = 0;
-    stopMotors();
-    bladesOFF();
-    measureBattery();
-    LED_pause.on();
+    poweroff();
     mower_state = STOP;
   }
 
@@ -296,19 +329,20 @@ void loop() {
     }
     // 1:  GO_BACKWARD
     else if (mower_state == 1) {
-      moveBackward (minSpeed, minSpeed);
+      moveBackward (maximumSpeed, maximumSpeed);
       DPRINTLN("GO_BACKWARD");
       if (isTimerPosition(TIME_GO_BACKWARD)) {
         //mower_state = GO_FORWARD;
-        //if (randomMove() == 1)  mower_state = TURN_RIGHT_90; else  mower_state = TURN_LEFT_90;
-        mower_state = TURN_LEFT_90;
+        if (randomMove() == 1)  mower_state = TURN_RIGHT_90; else  mower_state = TURN_LEFT_90;
+        //mower_state = TURN_LEFT_90;
       }
     }
     // 2: TURN_LEFT_30
     else if (mower_state == 2) {
       moveLeft(maximumSpeed);
       DPRINTLN("TURN_LEFT_30");
-      if (isTimerPosition(TIME_TURN_30)) {
+      randTime = random(10, 30);
+      if (isTimerPosition(TIME_TURN_30 + randTime)) {
         mower_state = GO_FORWARD;
       }
     }
@@ -316,7 +350,8 @@ void loop() {
     else if (mower_state == 3) {
       moveLeft(maximumSpeed);
       DPRINTLN("TURN_LEFT_90");
-      if (isTimerPosition(TIME_TURN_90)) {
+      randTime = random(10, 40);
+      if (isTimerPosition(TIME_TURN_90 + randTime)) {
         mower_state = GO_FORWARD;
       }
     }
@@ -324,7 +359,8 @@ void loop() {
     else if (mower_state == 4) {
       moveLeft(maximumSpeed);
       DPRINTLN("TURN_LEFT_180");
-      if (isTimerPosition(TIME_TURN_180)) {
+      randTime = random(10, 40);
+      if (isTimerPosition(TIME_TURN_180 + randTime)) {
         mower_state = GO_FORWARD;
       }
     }
@@ -332,7 +368,8 @@ void loop() {
     else if (mower_state == 5) {
       moveRight(maximumSpeed);
       DPRINTLN("TURN_RIGHT_30");
-      if (isTimerPosition(TIME_TURN_30)) {
+      randTime = random(10, 30);
+      if (isTimerPosition(TIME_TURN_30 + randTime)) {
         mower_state = GO_FORWARD;
       }
     }
@@ -340,7 +377,8 @@ void loop() {
     else if (mower_state == 6) {
       moveRight(maximumSpeed);
       DPRINTLN("TURN_RIGHT_90");
-      if (isTimerPosition(TIME_TURN_90)) {
+      randTime = random(10, 40);
+      if (isTimerPosition(TIME_TURN_90 + randTime)) {
         mower_state = GO_FORWARD;
       }
     }
@@ -348,7 +386,8 @@ void loop() {
     else if (mower_state == 7) {
       moveRight(maximumSpeed);
       DPRINTLN("TURN_RIGHT_180");
-      if (isTimerPosition(TIME_TURN_180)) {
+      randTime = random(10, 40);
+      if (isTimerPosition(TIME_TURN_180 + randTime)) {
         mower_state = GO_FORWARD;
       }
     }
@@ -369,3 +408,68 @@ void loop() {
 
   }
 } // END LOOP
+
+void displayInfo()
+{
+  if (gps.location.isValid())
+  {
+    Serial.print("Latitude: ");
+    Serial.println(gps.location.lat(), 6);
+    Serial.print("Longitude: ");
+    Serial.println(gps.location.lng(), 6);
+    Serial.print("Altitude: ");
+    Serial.println(gps.altitude.meters());
+
+    Serial.print("current ground course: ");
+    Serial.println(gps.course.value());
+
+    Serial.print("visible, participating satellites: ");
+    Serial.println(gps.satellites.value());
+
+    Serial.print("hdop: ");
+    Serial.println(gps.hdop.value());
+    
+  }
+  else
+  {
+    Serial.println("Location: Not Available");
+  }
+  
+  Serial.print("Date: ");
+  if (gps.date.isValid())
+  {
+    Serial.print(gps.date.month());
+    Serial.print("/");
+    Serial.print(gps.date.day());
+    Serial.print("/");
+    Serial.println(gps.date.year());
+  }
+  else
+  {
+    Serial.println("Not Available");
+  }
+
+  Serial.print("Time: ");
+  if (gps.time.isValid())
+  {
+    if (gps.time.hour() < 10) Serial.print(F("0"));
+    Serial.print(gps.time.hour());
+    Serial.print(":");
+    if (gps.time.minute() < 10) Serial.print(F("0"));
+    Serial.print(gps.time.minute());
+    Serial.print(":");
+    if (gps.time.second() < 10) Serial.print(F("0"));
+    Serial.print(gps.time.second());
+    Serial.print(".");
+    if (gps.time.centisecond() < 10) Serial.print(F("0"));
+    Serial.println(gps.time.centisecond());
+  }
+  else
+  {
+    Serial.println("Not Available");
+  }
+
+  Serial.println();
+  Serial.println();
+  delay(1000);
+}

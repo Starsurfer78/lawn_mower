@@ -61,7 +61,7 @@ void checkSonar() {
       break;
     case 4: // obstacles front, left, and right      
       startTimerPosition();
-      mower_state = TURN_LEFT_180;
+      mower_state = GO_BACKWARD;
       break;
     case 5: // obstacles left and right
       startTimerPosition();
